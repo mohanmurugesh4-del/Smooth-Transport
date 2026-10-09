@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101f3c">
+  <title>Smooth Transport | Live Monitoring</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true">ST</div>
+    <div class="brand-copy"><strong>Smooth Transport</strong><span>IoT container monitoring</span></div>
+    <div class="connection"><span id="connectionDot" class="dot offline"></span><span id="connectionText">Connecting…</span></div>
+  </header>
+
+  <main class="page">
+    <section class="intro">
+      <div><p class="eyebrow">OPERATIONS OVERVIEW</p><h1>Container health</h1><p class="subheading">Live telemetry, impact safety and levelling control.</p></div>
+      <div class="updated">Last update <strong id="lastUpdated">—</strong></div>
+    </section>
+
+    <section class="status-banner" id="balanceBanner" aria-live="polite">
+      <span class="status-icon" id="balanceIcon">◎</span>
+      <div><strong id="balanceTitle">Waiting for telemetry</strong><p id="balanceDescription">Connect the ESP32 to begin monitoring.</p></div>
+      <span class="banner-tag" id="modeTag">AUTO MODE</span>
+    </section>
+
+    <section class="metrics-grid">
+      <article class="metric-card"><div class="metric-top"><span>Container weight</span><span class="metric-icon">▤</span></div><div class="metric-value"><span id="weight">—</span><small>kg</small></div><div class="metric-foot">Measured load</div></article>
+      <article class="metric-card"><div class="metric-top"><span>Roll</span><span class="metric-icon">↔</span></div><div class="metric-value"><span id="roll">—</span><small>°</small></div><div class="metric-foot">Side-to-side tilt</div></article>
+      <article class="metric-card"><div class="metric-top"><span>Pitch</span><span class="metric-icon">↕</span></div><div class="metric-value"><span id="pitch">—</span><small>°</small></div><div class="metric-foot">Front-to-back tilt</div></article>
+      <article class="metric-card impact-card"><div class="metric-top"><span>Impact</span><span class="metric-icon">ϟ</span></div><div class="metric-value"><span id="impact">—</span><small>g</small></div><div class="signal-row"><span id="signalLamp" class="lamp"></span><strong id="signalLabel">No signal</strong></div></article>
+    </section>
+
+    <section class="content-grid">
+      <article class="panel control-panel">
+        <div class="panel-heading"><div><p class="eyebrow">ACTUATOR</p><h2>Levelling control</h2></div><span class="pill" id="servoPill">90°</span></div>
+        <div class="servo-readout"><div><span class="muted">Servo position</span><strong><span id="servoAngle">90</span><small>°</small></strong></div><div class="servo-visual" id="servoVisual"><div class="servo-hub"></div><div class="servo-arm"></div></div></div>
+        <div class="mode-row"><div><strong>Loading / unloading mode</strong><p>Pause automatic levelling for manual control.</p></div><label class="switch"><input type="checkbox" id="modeSwitch" aria-label="Loading and unloading mode"><span class="slider"></span></label></div>
+        <div class="manual-controls disabled" id="manualControls"><div class="range-label"><label for="servoRange">Manual servo angle</label><strong><span id="rangeValue">90</span>°</strong></div><input id="servoRange" type="range" min="45" max="135" value="90" step="1" disabled><div class="range-limits"><span>45°</span><span>90°</span><span>135°</span></div><button class="primary-button" id="applyAngle" disabled>Apply servo angle</button></div>
+        <div class="control-note" id="controlNote">Automatic levelling is active. The servo angle is controlled by the ESP32.</div>
+      </article>
+
+      <article class="panel safety-panel">
+        <div class="panel-heading"><div><p class="eyebrow">SAFETY MONITOR</p><h2>Impact signal</h2></div><span class="pill">Thresholds</span></div>
+        <div class="signal-level level-green"><span class="legend-lamp"></span><div><strong>Normal</strong><p>Impact ≤ 0.5 g</p></div><span class="level-state">GREEN</span></div>
+        <div class="signal-level level-amber"><span class="legend-lamp"></span><div><strong>Caution</strong><p>Impact &gt; 0.5 g and &lt; 2.0 g</p></div><span class="level-state">AMBER</span></div>
+        <div class="signal-level level-red"><span class="legend-lamp"></span><div><strong>High impact</strong><p>Impact ≥ 2.0 g</p></div><span class="level-state">RED</span></div>
+        <div class="safety-foot"><span class="info-icon">i</span><span>Signals are based on the latest measured impact magnitude.</span></div>
+      </article>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="panel-heading log-heading"><div><p class="eyebrow">EVENT HISTORY</p><h2>Notification log</h2><p class="panel-subtitle">Balance changes and maximum-impact events appear here.</p></div><div class="log-actions"><span class="count-badge" id="logCount">0 events</span><button class="secondary-button" id="clearLog">Clear log</button></div></div>
+      <div class="notification-list" id="notificationLog" aria-live="polite"><div class="empty-state">No events yet. Notifications will appear as the system runs.</div></div>
+    </section>
+
+    <footer><span>SMOOTH TRANSPORT <span class="footer-dot">•</span> LIVE IOT SYSTEM</span><a href="/api/telemetry.csv">Download telemetry CSV ↗</a></footer>
+  </main>
+  <div class="toast-stack" id="toastStack" aria-live="assertive"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

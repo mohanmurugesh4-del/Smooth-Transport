@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+server/data/*.csv
+.pio/
+.vscode/
