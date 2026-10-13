@@ -1,64 +1,586 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101f3c">
-  <title>Smooth Transport | Live Monitoring</title>
-  <link rel="stylesheet" href="/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10182b">
+
+    <title>Smooth Transport | IoT Monitoring</title>
+
+    <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
-  <header class="topbar">
-    <div class="brand-mark" aria-hidden="true">ST</div>
-    <div class="brand-copy"><strong>Smooth Transport</strong><span>IoT container monitoring</span></div>
-    <div class="connection"><span id="connectionDot" class="dot offline"></span><span id="connectionText">Connecting…</span></div>
-  </header>
 
-  <main class="page">
-    <section class="intro">
-      <div><p class="eyebrow">OPERATIONS OVERVIEW</p><h1>Container health</h1><p class="subheading">Live telemetry, impact safety and levelling control.</p></div>
-      <div class="updated">Last update <strong id="lastUpdated">—</strong></div>
+    <!-- LOGIN SCREEN -->
+    <section class="login-screen" id="loginScreen">
+        <div class="login-card">
+
+            <div class="brand-mark">ST</div>
+
+            <p class="eyebrow">SMART LOGISTICS PLATFORM</p>
+
+            <h1>Smooth Transport</h1>
+
+            <p class="muted">
+                Secure access to your container monitoring system.
+            </p>
+
+            <form id="loginForm">
+
+                <label for="loginUsername">Username</label>
+
+                <input
+                    type="text"
+                    id="loginUsername"
+                    name="username"
+                    placeholder="Enter username"
+                    autocomplete="username"
+                    required
+                >
+
+                <label for="loginPassword">Password</label>
+
+                <input
+                    type="password"
+                    id="loginPassword"
+                    name="password"
+                    placeholder="Enter password"
+                    autocomplete="current-password"
+                    required
+                >
+
+                <button type="submit" class="primary-button" id="loginButton">
+                    Sign in
+                </button>
+
+                <p id="loginError" class="error-message" role="alert"></p>
+
+            </form>
+
+            <p class="login-footer">
+                Authorized personnel only.
+            </p>
+
+        </div>
     </section>
 
-    <section class="status-banner" id="balanceBanner" aria-live="polite">
-      <span class="status-icon" id="balanceIcon">◎</span>
-      <div><strong id="balanceTitle">Waiting for telemetry</strong><p id="balanceDescription">Connect the ESP32 to begin monitoring.</p></div>
-      <span class="banner-tag" id="modeTag">AUTO MODE</span>
-    </section>
 
-    <section class="metrics-grid">
-      <article class="metric-card"><div class="metric-top"><span>Container weight</span><span class="metric-icon">▤</span></div><div class="metric-value"><span id="weight">—</span><small>kg</small></div><div class="metric-foot">Measured load</div></article>
-      <article class="metric-card"><div class="metric-top"><span>Roll</span><span class="metric-icon">↔</span></div><div class="metric-value"><span id="roll">—</span><small>°</small></div><div class="metric-foot">Side-to-side tilt</div></article>
-      <article class="metric-card"><div class="metric-top"><span>Pitch</span><span class="metric-icon">↕</span></div><div class="metric-value"><span id="pitch">—</span><small>°</small></div><div class="metric-foot">Front-to-back tilt</div></article>
-      <article class="metric-card impact-card"><div class="metric-top"><span>Impact</span><span class="metric-icon">ϟ</span></div><div class="metric-value"><span id="impact">—</span><small>g</small></div><div class="signal-row"><span id="signalLamp" class="lamp"></span><strong id="signalLabel">No signal</strong></div></article>
-    </section>
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard" hidden>
 
-    <section class="content-grid">
-      <article class="panel control-panel">
-        <div class="panel-heading"><div><p class="eyebrow">ACTUATOR</p><h2>Levelling control</h2></div><span class="pill" id="servoPill">90°</span></div>
-        <div class="servo-readout"><div><span class="muted">Servo position</span><strong><span id="servoAngle">90</span><small>°</small></strong></div><div class="servo-visual" id="servoVisual"><div class="servo-hub"></div><div class="servo-arm"></div></div></div>
-        <div class="mode-row"><div><strong>Loading / unloading mode</strong><p>Pause automatic levelling for manual control.</p></div><label class="switch"><input type="checkbox" id="modeSwitch" aria-label="Loading and unloading mode"><span class="slider"></span></label></div>
-        <div class="manual-controls disabled" id="manualControls"><div class="range-label"><label for="servoRange">Manual servo angle</label><strong><span id="rangeValue">90</span>°</strong></div><input id="servoRange" type="range" min="45" max="135" value="90" step="1" disabled><div class="range-limits"><span>45°</span><span>90°</span><span>135°</span></div><button class="primary-button" id="applyAngle" disabled>Apply servo angle</button></div>
-        <div class="control-note" id="controlNote">Automatic levelling is active. The servo angle is controlled by the ESP32.</div>
-      </article>
+        <!-- HEADER -->
+        <header class="topbar">
 
-      <article class="panel safety-panel">
-        <div class="panel-heading"><div><p class="eyebrow">SAFETY MONITOR</p><h2>Impact signal</h2></div><span class="pill">Thresholds</span></div>
-        <div class="signal-level level-green"><span class="legend-lamp"></span><div><strong>Normal</strong><p>Impact ≤ 0.5 g</p></div><span class="level-state">GREEN</span></div>
-        <div class="signal-level level-amber"><span class="legend-lamp"></span><div><strong>Caution</strong><p>Impact &gt; 0.5 g and &lt; 2.0 g</p></div><span class="level-state">AMBER</span></div>
-        <div class="signal-level level-red"><span class="legend-lamp"></span><div><strong>High impact</strong><p>Impact ≥ 2.0 g</p></div><span class="level-state">RED</span></div>
-        <div class="safety-foot"><span class="info-icon">i</span><span>Signals are based on the latest measured impact magnitude.</span></div>
-      </article>
-    </section>
+            <div class="brand">
+                <div class="brand-mark">ST</div>
 
-    <section class="panel log-panel">
-      <div class="panel-heading log-heading"><div><p class="eyebrow">EVENT HISTORY</p><h2>Notification log</h2><p class="panel-subtitle">Balance changes and maximum-impact events appear here.</p></div><div class="log-actions"><span class="count-badge" id="logCount">0 events</span><button class="secondary-button" id="clearLog">Clear log</button></div></div>
-      <div class="notification-list" id="notificationLog" aria-live="polite"><div class="empty-state">No events yet. Notifications will appear as the system runs.</div></div>
-    </section>
+                <div class="brand-copy">
+                    <strong>Smooth Transport</strong>
+                    <span>IoT Container Monitoring</span>
+                </div>
+            </div>
 
-    <footer><span>SMOOTH TRANSPORT <span class="footer-dot">•</span> LIVE IOT SYSTEM</span><a href="/api/telemetry.csv">Download telemetry CSV ↗</a></footer>
-  </main>
-  <div class="toast-stack" id="toastStack" aria-live="assertive"></div>
-  <script src="/app.js"></script>
+            <div class="header-actions">
+
+                <div class="connection">
+                    <span id="connectionDot" class="dot offline"></span>
+                    <span id="connectionText">Waiting for ESP32</span>
+                </div>
+
+                <div class="user-info">
+                    <span id="usernameLabel">User</span>
+                    <span class="role-badge" id="roleBadge">USER</span>
+                </div>
+
+                <button class="secondary-button" id="logoutButton" type="button">
+                    Sign out
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <main class="page">
+
+            <!-- PAGE INTRODUCTION -->
+            <section class="intro">
+
+                <div>
+                    <p class="eyebrow">OPERATIONS OVERVIEW</p>
+
+                    <h1>Container health</h1>
+
+                    <p class="subheading">
+                        Monitor weight, balance, impact, location and loading status.
+                    </p>
+                </div>
+
+                <div class="updated">
+                    Last update
+                    <strong id="lastUpdated">—</strong>
+                </div>
+
+            </section>
+
+
+            <!-- BALANCE STATUS -->
+            <section class="status-banner waiting" id="balanceBanner">
+
+                <span class="status-icon" id="balanceIcon">◎</span>
+
+                <div>
+                    <strong id="balanceTitle">Waiting for telemetry</strong>
+
+                    <p id="balanceDescription">
+                        Connect the ESP32 to begin monitoring.
+                    </p>
+                </div>
+
+                <span class="banner-tag" id="modeTag">AUTO MODE</span>
+
+            </section>
+
+
+            <!-- TELEMETRY CARDS -->
+            <section class="metrics-grid">
+
+                <article class="metric-card">
+                    <div class="metric-top">
+                        <span>Container weight</span>
+                        <span class="metric-icon">▤</span>
+                    </div>
+
+                    <div class="metric-value">
+                        <span id="weight">—</span>
+                        <small>kg</small>
+                    </div>
+
+                    <div class="metric-foot">Measured load</div>
+                </article>
+
+
+                <article class="metric-card">
+                    <div class="metric-top">
+                        <span>Roll</span>
+                        <span class="metric-icon">↔</span>
+                    </div>
+
+                    <div class="metric-value">
+                        <span id="roll">—</span>
+                        <small>°</small>
+                    </div>
+
+                    <div class="metric-foot">Side-to-side tilt</div>
+                </article>
+
+
+                <article class="metric-card">
+                    <div class="metric-top">
+                        <span>Pitch</span>
+                        <span class="metric-icon">↕</span>
+                    </div>
+
+                    <div class="metric-value">
+                        <span id="pitch">—</span>
+                        <small>°</small>
+                    </div>
+
+                    <div class="metric-foot">Front-to-back tilt</div>
+                </article>
+
+
+                <article class="metric-card impact-card">
+                    <div class="metric-top">
+                        <span>Impact</span>
+                        <span class="metric-icon">ϟ</span>
+                    </div>
+
+                    <div class="metric-value">
+                        <span id="impact">—</span>
+                        <small>g</small>
+                    </div>
+
+                    <div class="signal-row">
+                        <span id="signalLamp" class="lamp"></span>
+                        <strong id="signalLabel">No signal</strong>
+                    </div>
+                </article>
+
+            </section>
+
+
+            <!-- DEVICE AND GPS -->
+            <section class="content-grid">
+
+                <article class="panel device-panel">
+
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">HARDWARE</p>
+                            <h2>ESP32 connection</h2>
+                        </div>
+
+                        <span class="pill" id="deviceStatus">Offline</span>
+                    </div>
+
+                    <div class="device-details">
+
+                        <div>
+                            <span class="muted">Device ID</span>
+                            <strong id="deviceId">smooth-transport-esp32</strong>
+                        </div>
+
+                        <div>
+                            <span class="muted">Accelerometer</span>
+                            <strong id="mpuStatus">Waiting for device</strong>
+                        </div>
+
+                        <div>
+                            <span class="muted">GPS status</span>
+                            <strong id="gpsStatus">Waiting for GPS</strong>
+                        </div>
+
+                    </div>
+
+                    <p class="control-note" id="deviceNote">
+                        Turn on your ESP32 and connect it to Wi-Fi.
+                    </p>
+
+                </article>
+
+
+                <article class="panel gps-panel">
+
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">LOCATION TRACKING</p>
+                            <h2>GPS location</h2>
+                        </div>
+
+                        <span class="pill" id="gpsBadge">No fix</span>
+                    </div>
+
+                    <div class="gps-coordinates">
+
+                        <div>
+                            <span class="muted">Latitude</span>
+                            <strong id="latitude">—</strong>
+                        </div>
+
+                        <div>
+                            <span class="muted">Longitude</span>
+                            <strong id="longitude">—</strong>
+                        </div>
+
+                        <div>
+                            <span class="muted">Satellites</span>
+                            <strong id="gpsSatellites">—</strong>
+                        </div>
+
+                    </div>
+
+                    <div class="map-container">
+
+                        <iframe
+                            id="gpsMap"
+                            title="Container GPS map"
+                            src="about:blank"
+                            loading="lazy"
+                            referrerpolicy="no-referrer"
+                        ></iframe>
+
+                    </div>
+
+                    <a
+                        class="map-link"
+                        id="openMapLink"
+                        href="https://www.openstreetmap.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Open map ↗
+                    </a>
+
+                    <p class="control-note" id="gpsNote">
+                        A valid GPS fix is required to display the container's location.
+                    </p>
+
+                </article>
+
+            </section>
+
+
+            <!-- CONTROLS -->
+            <section class="content-grid">
+
+                <!-- ADMIN-ONLY CONTROLS -->
+                <article class="panel control-panel" id="adminControls">
+
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">ACTUATOR</p>
+                            <h2>Levelling control</h2>
+                        </div>
+
+                        <span class="pill" id="servoPill">90°</span>
+                    </div>
+
+                    <div class="servo-readout">
+
+                        <div>
+                            <span class="muted">Servo position</span>
+
+                            <strong>
+                                <span id="servoAngle">90</span><small>°</small>
+                            </strong>
+                        </div>
+
+                        <div class="servo-visual" id="servoVisual">
+                            <div class="servo-hub"></div>
+                            <div class="servo-arm"></div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="mode-row">
+
+                        <div>
+                            <strong>Loading / unloading mode</strong>
+                            <p>Pause automatic levelling for manual control.</p>
+                        </div>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="modeSwitch"
+                                aria-label="Loading and unloading mode"
+                            >
+                            <span class="slider"></span>
+                        </label>
+
+                    </div>
+
+
+                    <div class="manual-controls disabled" id="manualControls">
+
+                        <div class="range-label">
+                            <label for="servoRange">Manual servo angle</label>
+
+                            <strong>
+                                <span id="rangeValue">90</span>°
+                            </strong>
+                        </div>
+
+                        <input
+                            id="servoRange"
+                            type="range"
+                            min="45"
+                            max="135"
+                            value="90"
+                            step="1"
+                            disabled
+                        >
+
+                        <div class="range-limits">
+                            <span>45°</span>
+                            <span>90°</span>
+                            <span>135°</span>
+                        </div>
+
+                        <button
+                            class="primary-button"
+                            id="applyAngle"
+                            type="button"
+                            disabled
+                        >
+                            Apply servo angle
+                        </button>
+
+                    </div>
+
+                    <p class="control-note" id="controlNote">
+                        Automatic levelling is controlled by the ESP32.
+                    </p>
+
+                </article>
+
+
+                <!-- LOADING SYSTEM CONTROL -->
+                <article class="panel load-panel">
+
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">LOAD MANAGEMENT</p>
+                            <h2>Loading system</h2>
+                        </div>
+
+                        <span class="pill" id="loadStatus">OFF</span>
+                    </div>
+
+                    <div class="load-state">
+
+                        <div>
+                            <strong id="loadTitle">Loading system is OFF</strong>
+
+                            <p id="loadDescription">
+                                Turn the system on when loading operations are ready.
+                            </p>
+                        </div>
+
+                        <span class="load-indicator" id="loadIndicator"></span>
+
+                    </div>
+
+                    <div class="load-actions">
+
+                        <button
+                            class="primary-button"
+                            type="button"
+                            id="loadOnButton"
+                        >
+                            Turn ON
+                        </button>
+
+                        <button
+                            class="secondary-button"
+                            type="button"
+                            id="loadOffButton"
+                        >
+                            Turn OFF
+                        </button>
+
+                    </div>
+
+                    <p class="control-note" id="loadNote">
+                        Commands are sent to the server and await ESP32 acknowledgement.
+                    </p>
+
+                </article>
+
+            </section>
+
+
+            <!-- IMPACT SAFETY -->
+            <section class="panel safety-panel">
+
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">SAFETY MONITOR</p>
+                        <h2>Impact signal thresholds</h2>
+                    </div>
+                </div>
+
+                <div class="signal-level level-green">
+                    <span class="legend-lamp"></span>
+
+                    <div>
+                        <strong>Normal</strong>
+                        <p>Impact ≤ 0.5 g</p>
+                    </div>
+
+                    <span class="level-state">GREEN</span>
+                </div>
+
+
+                <div class="signal-level level-amber">
+                    <span class="legend-lamp"></span>
+
+                    <div>
+                        <strong>Caution</strong>
+                        <p>Impact &gt; 0.5 g and &lt; 2.0 g</p>
+                    </div>
+
+                    <span class="level-state">AMBER</span>
+                </div>
+
+
+                <div class="signal-level level-red">
+                    <span class="legend-lamp"></span>
+
+                    <div>
+                        <strong>High impact</strong>
+                        <p>Impact ≥ 2.0 g</p>
+                    </div>
+
+                    <span class="level-state">RED</span>
+                </div>
+
+                <div class="safety-foot">
+                    Impact alerts use the latest reported sensor measurement.
+                </div>
+
+            </section>
+
+
+            <!-- EVENT LOG -->
+            <section class="panel log-panel">
+
+                <div class="panel-heading log-heading">
+
+                    <div>
+                        <p class="eyebrow">EVENT HISTORY</p>
+                        <h2>Notification log</h2>
+
+                        <p class="panel-subtitle">
+                            Balance changes, impact events and system actions.
+                        </p>
+                    </div>
+
+                    <div class="log-actions">
+                        <span class="count-badge" id="logCount">0 events</span>
+
+                        <button
+                            class="secondary-button"
+                            id="clearLog"
+                            type="button"
+                        >
+                            Clear log
+                        </button>
+                    </div>
+
+                </div>
+
+                <div
+                    class="notification-list"
+                    id="notificationLog"
+                    aria-live="polite"
+                >
+                    <div class="empty-state">
+                        No events yet. Notifications will appear as the system runs.
+                    </div>
+                </div>
+
+            </section>
+
+
+            <!-- FOOTER -->
+            <footer>
+
+                <span>
+                    SMOOTH TRANSPORT
+                    <span class="footer-dot">•</span>
+                    LIVE IOT SYSTEM
+                </span>
+
+                <a href="/api/telemetry.csv" id="downloadCsv">
+                    Download telemetry CSV ↗
+                </a>
+
+            </footer>
+
+        </main>
+
+    </div>
+
+
+    <!-- NOTIFICATIONS -->
+    <div class="toast-stack" id="toastStack" aria-live="assertive"></div>
+
+
+    <script src="/app.js"></script>
+
 </body>
 </html>
