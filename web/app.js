@@ -1,8 +1,9 @@
 "use strict";
 
-// =============================================
-// SMOOTH TRANSPORT - FRONTEND APPLICATION
-// =============================================
+// =====================================================
+// SMOOTH TRANSPORT
+// Login, registration, dashboard and device controls
+// =====================================================
 
 const POLL_MS = 1500;
 const BALANCE_TOLERANCE = 0.5;
@@ -11,9 +12,11 @@ const MAX_LOG_EVENTS = 200;
 const $ = (id) => document.getElementById(id);
 
 let currentUser = null;
+
 let lastBalanced = null;
 let lastImpact = 0;
 let lastTelemetryKey = "";
+
 let logEvents = [];
 
 let modeRequestInFlight = false;
@@ -22,14 +25,9 @@ let loadRequestInFlight = false;
 let pollInFlight = false;
 
 
-// =============================================
-// GENERAL HELPERS
-// =============================================
-
-function fmt(value, digits = 2) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n.toFixed(digits) : "—";
-}
+// =====================================================
+// API HELPERS
+// =====================================================
 
 async function apiRequest(url, options = {}) {
     const response = await fetch(url, {
@@ -44,41 +42,97 @@ async function apiRequest(url, options = {}) {
     const result = await response.json().catch(() => ({}));
 
     if (response.status === 401 && url !== "/api/login") {
-        showLogin("Your session has expired. Please sign in again.");
-        throw new Error("Your session has expired. Please sign in again.");
+        showLogin(
+            "Your session has expired. Please sign in again."
+        );
+
+        throw new Error(
+            "Your session has expired. Please sign in again."
+        );
     }
 
     if (!response.ok) {
-        throw new Error(result.error || `Request failed (${response.status})`);
+        throw new Error(
+            result.error || `Request failed (${response.status})`
+        );
     }
 
     return result;
 }
 
+
 async function postJson(url, body) {
     return apiRequest(url, {
         method: "POST",
+
         headers: {
             "Content-Type": "application/json"
         },
+
         body: JSON.stringify(body)
     });
 }
 
 
-// =============================================
-// LOGIN AND LOGOUT
-// =============================================
+function fmt(value, digits = 2) {
+    const number = Number(value);
+
+    return Number.isFinite(number)
+        ? number.toFixed(digits)
+        : "—";
+}
+
+
+// =====================================================
+// LOGIN AND REGISTRATION PANELS
+// =====================================================
 
 function showLogin(message = "") {
     $("loginScreen").hidden = false;
     $("dashboard").hidden = true;
 
+    $("loginPanel").hidden = false;
+    $("registerPanel").hidden = true;
+
     $("loginError").textContent = message;
+
+    $("registerError").textContent = "";
+    $("registerSuccess").textContent = "";
+
     $("loginPassword").value = "";
 
     currentUser = null;
 }
+
+
+function showRegister() {
+    $("loginPanel").hidden = true;
+    $("registerPanel").hidden = false;
+
+    $("registerError").textContent = "";
+    $("registerSuccess").textContent = "";
+
+    $("registerForm").reset();
+
+    $("registerUsername").focus();
+}
+
+
+$("showRegisterButton").addEventListener("click", () => {
+    showRegister();
+});
+
+
+$("showLoginButton").addEventListener("click", () => {
+    showLogin();
+
+    $("loginUsername").focus();
+});
+
+
+// =====================================================
+// SHOW AUTHENTICATED DASHBOARD
+// =====================================================
 
 function showDashboard(user) {
     currentUser = user;
@@ -87,14 +141,15 @@ function showDashboard(user) {
     $("dashboard").hidden = false;
 
     $("usernameLabel").textContent = user.username;
+
     $("roleBadge").textContent = user.role.toUpperCase();
 
     const isAdmin = user.role === "admin";
 
-    // Admin can manage servo and levelling controls.
+    // Only Admin can access levelling controls.
     $("adminControls").hidden = !isAdmin;
 
-    // Both roles can operate the loading system.
+    // Both roles can use loading-system controls.
     $("loadOnButton").hidden = false;
     $("loadOffButton").hidden = false;
 
@@ -103,7 +158,7 @@ function showDashboard(user) {
 
     if (!isAdmin) {
         $("controlNote").textContent =
-            "Servo and automatic levelling controls are available to Admin only.";
+            "Servo and levelling controls are available to Admin only.";
     }
 
     addLog(
@@ -114,19 +169,30 @@ function showDashboard(user) {
     );
 }
 
+
+// =====================================================
+// SIGN IN
+// =====================================================
+
 $("loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const username = $("loginUsername").value.trim();
+
     const password = $("loginPassword").value;
 
     if (!username || !password) {
-        $("loginError").textContent = "Enter your username and password.";
+        $("loginError").textContent =
+            "Enter your username and password.";
+
         return;
     }
 
-    $("loginButton").disabled = true;
-    $("loginButton").textContent = "Signing in...";
+    const button = $("loginButton");
+
+    button.disabled = true;
+    button.textContent = "Signing in...";
+
     $("loginError").textContent = "";
 
     try {
@@ -141,23 +207,129 @@ $("loginForm").addEventListener("submit", async (event) => {
         });
 
         await poll();
+
     } catch (error) {
         $("loginError").textContent = error.message;
+
     } finally {
-        $("loginButton").disabled = false;
-        $("loginButton").textContent = "Sign in";
+        button.disabled = false;
+        button.textContent = "Sign In";
     }
 });
+
+
+// =====================================================
+// CREATE ACCOUNT
+// =====================================================
+
+$("registerForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const username = $("registerUsername").value
+        .trim()
+        .toLowerCase();
+
+    const password = $("registerPassword").value;
+
+    const confirmPassword =
+        $("registerConfirmPassword").value;
+
+    const button = $("registerButton");
+
+    $("registerError").textContent = "";
+    $("registerSuccess").textContent = "";
+
+    // Validate the username.
+    const usernamePattern = /^[a-z0-9_.-]{3,30}$/;
+
+    if (!usernamePattern.test(username)) {
+        $("registerError").textContent =
+            "Use 3–30 characters: lowercase letters, numbers, dots, underscores or hyphens.";
+
+        return;
+    }
+
+    // Validate the password length.
+    if (password.length < 10 || password.length > 128) {
+        $("registerError").textContent =
+            "Your password must contain 10–128 characters.";
+
+        return;
+    }
+
+    // Confirm that both passwords match.
+    if (password !== confirmPassword) {
+        $("registerError").textContent =
+            "Your passwords do not match.";
+
+        $("registerConfirmPassword").focus();
+
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Creating account...";
+
+    try {
+        const result = await postJson("/api/register", {
+            username,
+            password,
+            confirm_password: confirmPassword
+        });
+
+        $("registerSuccess").textContent =
+            result.message ||
+            "Account created successfully. You can now sign in.";
+
+        $("registerForm").reset();
+
+        // Return to login and prefill the new username.
+        $("loginPanel").hidden = false;
+        $("registerPanel").hidden = true;
+
+        $("loginUsername").value = username;
+        $("loginPassword").value = "";
+
+        $("loginError").textContent = "";
+
+        showToast(
+            "Account created",
+            "Your account is ready. Sign in using your new credentials."
+        );
+
+        $("loginPassword").focus();
+
+    } catch (error) {
+        $("registerError").textContent = error.message;
+
+    } finally {
+        button.disabled = false;
+        button.textContent = "Create My Account";
+    }
+});
+
+
+// =====================================================
+// LOGOUT
+// =====================================================
 
 $("logoutButton").addEventListener("click", async () => {
     try {
         await postJson("/api/logout", {});
+
     } catch (error) {
         console.warn("Logout request failed:", error.message);
     }
 
     showLogin();
+
+    $("loginUsername").focus();
 });
+
+
+// =====================================================
+// RESTORE EXISTING SESSION
+// =====================================================
 
 async function checkSession() {
     try {
@@ -170,18 +342,22 @@ async function checkSession() {
             });
 
             await poll();
+
         } else {
             showLogin();
         }
+
     } catch (error) {
-        showLogin("Unable to verify your session. Please sign in.");
+        showLogin(
+            "Unable to verify your session. Please sign in again."
+        );
     }
 }
 
 
-// =============================================
-// NOTIFICATION SYSTEM
-// =============================================
+// =====================================================
+// TOAST NOTIFICATIONS
+// =====================================================
 
 function showToast(title, message, severity = "normal") {
     const toast = document.createElement("div");
@@ -190,18 +366,33 @@ function showToast(title, message, severity = "normal") {
         `toast ${severity === "normal" ? "" : severity}`;
 
     const heading = document.createElement("strong");
+
     heading.textContent = title;
 
     const body = document.createElement("p");
+
     body.textContent = message;
 
     toast.append(heading, body);
+
     $("toastStack").prepend(toast);
 
-    window.setTimeout(() => toast.remove(), 5000);
+    window.setTimeout(() => {
+        toast.remove();
+    }, 5000);
 }
 
-function addLog(title, message, severity = "normal", notify = true) {
+
+// =====================================================
+// EVENT LOG
+// =====================================================
+
+function addLog(
+    title,
+    message,
+    severity = "normal",
+    notify = true
+) {
     const event = {
         title,
         message,
@@ -210,6 +401,7 @@ function addLog(title, message, severity = "normal", notify = true) {
     };
 
     logEvents.unshift(event);
+
     logEvents = logEvents.slice(0, MAX_LOG_EVENTS);
 
     renderLog();
@@ -218,6 +410,7 @@ function addLog(title, message, severity = "normal", notify = true) {
         showToast(title, message, severity);
     }
 }
+
 
 function renderLog() {
     const container = $("notificationLog");
@@ -234,32 +427,43 @@ function renderLog() {
         empty.textContent = "No events yet.";
 
         container.append(empty);
+
         return;
     }
 
     for (const event of logEvents) {
         const row = document.createElement("div");
-        row.className = `log-item ${event.severity}`;
+
+        row.className =
+            `log-item ${event.severity === "normal" ? "" : event.severity}`;
 
         const marker = document.createElement("span");
+
         marker.className = "log-marker";
 
         marker.textContent =
-            event.severity === "danger" ? "!" :
-            event.severity === "warning" ? "!" : "✓";
+            event.severity === "danger"
+                ? "!"
+                : event.severity === "warning"
+                    ? "!"
+                    : "✓";
 
         const copy = document.createElement("div");
+
         copy.className = "log-copy";
 
         const title = document.createElement("strong");
+
         title.textContent = event.title;
 
         const message = document.createElement("p");
+
         message.textContent = event.message;
 
         copy.append(title, message);
 
         const time = document.createElement("time");
+
         time.className = "log-time";
 
         time.textContent = event.time.toLocaleTimeString([], {
@@ -269,19 +473,22 @@ function renderLog() {
         });
 
         row.append(marker, copy, time);
+
         container.append(row);
     }
 }
 
+
 $("clearLog").addEventListener("click", () => {
     logEvents = [];
+
     renderLog();
 });
 
 
-// =============================================
+// =====================================================
 // CONNECTION STATUS
-// =============================================
+// =====================================================
 
 function setConnection(online) {
     $("connectionDot").className =
@@ -294,14 +501,14 @@ function setConnection(online) {
         online ? "Online" : "Offline";
 
     $("deviceNote").textContent = online
-        ? "The ESP32 has recently sent telemetry."
-        : "No recent ESP32 telemetry. Check its power, Wi-Fi and API settings.";
+        ? "The ESP32 recently sent telemetry."
+        : "No recent ESP32 telemetry. Check device power, Wi-Fi and API settings.";
 }
 
 
-// =============================================
+// =====================================================
 // IMPACT STATUS
-// =============================================
+// =====================================================
 
 function setSignal(impact) {
     const lamp = $("signalLamp");
@@ -310,20 +517,25 @@ function setSignal(impact) {
 
     if (impact <= 0.5) {
         lamp.classList.add("green");
+
         $("signalLabel").textContent = "Normal · Green";
+
     } else if (impact >= 2.0) {
         lamp.classList.add("red");
+
         $("signalLabel").textContent = "High impact · Red";
+
     } else {
         lamp.classList.add("amber", "blink");
+
         $("signalLabel").textContent = "Caution · Amber";
     }
 }
 
 
-// =============================================
+// =====================================================
 // BALANCE MONITORING
-// =============================================
+// =====================================================
 
 function updateBalance(roll, pitch) {
     const balanced =
@@ -333,22 +545,29 @@ function updateBalance(roll, pitch) {
     const banner = $("balanceBanner");
 
     banner.classList.toggle("unbalanced", !balanced);
+
     banner.classList.remove("waiting");
 
-    $("balanceIcon").textContent = balanced ? "✓" : "!";
+    $("balanceIcon").textContent =
+        balanced ? "✓" : "!";
+
     $("balanceTitle").textContent =
-        balanced ? "Balanced" : "Balance lost";
+        balanced ? "Balanced at 0°" : "Balance lost";
 
     $("balanceDescription").textContent = balanced
         ? `Roll ${fmt(roll)}° and pitch ${fmt(pitch)}° are within tolerance.`
         : `Roll ${fmt(roll)}° and pitch ${fmt(pitch)}° are outside tolerance.`;
 
-    if (lastBalanced !== null && balanced !== lastBalanced) {
+    if (
+        lastBalanced !== null &&
+        balanced !== lastBalanced
+    ) {
         if (balanced) {
             addLog(
                 "Container balanced",
                 `Roll ${fmt(roll)}°, pitch ${fmt(pitch)}°.`
             );
+
         } else {
             addLog(
                 "Balance lost",
@@ -362,30 +581,38 @@ function updateBalance(roll, pitch) {
 }
 
 
-// =============================================
-// GPS LOCATION
-// =============================================
+// =====================================================
+// GPS DISPLAY
+// =====================================================
 
 function updateGps(t) {
+    const latitudeValue = Number(t.latitude);
+
+    const longitudeValue = Number(t.longitude);
+
     const valid =
         t.gps_valid === true &&
-        Number.isFinite(Number(t.latitude)) &&
-        Number.isFinite(Number(t.longitude)) &&
         t.latitude !== null &&
         t.longitude !== null &&
-        Number(t.latitude) >= -90 &&
-        Number(t.latitude) <= 90 &&
-        Number(t.longitude) >= -180 &&
-        Number(t.longitude) <= 180;
+        Number.isFinite(latitudeValue) &&
+        Number.isFinite(longitudeValue) &&
+        latitudeValue >= -90 &&
+        latitudeValue <= 90 &&
+        longitudeValue >= -180 &&
+        longitudeValue <= 180;
 
-    $("gpsStatus").textContent = valid ? "GPS fix available" : "No GPS fix";
-    $("gpsBadge").textContent = valid ? "GPS active" : "No fix";
+    $("gpsStatus").textContent =
+        valid ? "GPS fix available" : "No GPS fix";
+
+    $("gpsBadge").textContent =
+        valid ? "GPS active" : "No fix";
 
     $("gpsSatellites").textContent =
         valid ? String(t.gps_sats ?? 0) : "—";
 
     if (!valid) {
         $("latitude").textContent = "—";
+
         $("longitude").textContent = "—";
 
         $("gpsMap").src = "about:blank";
@@ -399,38 +626,46 @@ function updateGps(t) {
         return;
     }
 
-    const latitude = Number(t.latitude);
-    const longitude = Number(t.longitude);
+    const lat = latitudeValue.toFixed(6);
 
-    $("latitude").textContent = latitude.toFixed(6);
-    $("longitude").textContent = longitude.toFixed(6);
+    const lon = longitudeValue.toFixed(6);
 
-    // Coordinates are inserted only after numeric validation.
-    const latText = latitude.toFixed(6);
-    const lonText = longitude.toFixed(6);
+    $("latitude").textContent = lat;
+
+    $("longitude").textContent = lon;
+
+    const delta = 0.01;
+
+    const bbox = [
+        longitudeValue - delta,
+        latitudeValue - delta,
+        longitudeValue + delta,
+        latitudeValue + delta
+    ].join(",");
 
     $("gpsMap").src =
-        `https://www.openstreetmap.org/export/embed.html?bbox=` +
-        `${longitude - 0.01}%2C${latitude - 0.01}%2C` +
-        `${longitude + 0.01}%2C${latitude + 0.01}` +
-        `&layer=mapnik&marker=${latitude}%2C${longitude}`;
+        "https://www.openstreetmap.org/export/embed.html" +
+        `?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
 
     $("openMapLink").href =
-        `https://www.openstreetmap.org/?mlat=${latText}&mlon=${lonText}#map=16/${latText}/${lonText}`;
+        `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
 
     $("gpsNote").textContent =
         `Latest GPS time: ${t.gps_time || "Not supplied"}`;
 }
 
 
-// =============================================
+// =====================================================
 // TELEMETRY DISPLAY
-// =============================================
+// =====================================================
 
 function updateTelemetry(t) {
     $("weight").textContent = fmt(t.weight_kg);
+
     $("roll").textContent = fmt(t.roll_deg);
+
     $("pitch").textContent = fmt(t.pitch_deg);
+
     $("impact").textContent = fmt(t.impact_g);
 
     $("deviceId").textContent =
@@ -442,6 +677,7 @@ function updateTelemetry(t) {
     const angle = Number(t.servo_angle ?? 90);
 
     $("servoAngle").textContent = fmt(angle, 0);
+
     $("servoPill").textContent = `${fmt(angle, 0)}°`;
 
     const arm = $("servoVisual").querySelector(".servo-arm");
@@ -458,31 +694,41 @@ function updateTelemetry(t) {
     $("modeTag").textContent =
         loadingMode ? "MANUAL MODE" : "AUTO MODE";
 
-    $("manualControls").classList.toggle("disabled", !loadingMode);
+    $("manualControls").classList.toggle(
+        "disabled",
+        !loadingMode
+    );
 
-    $("servoRange").disabled =
-        !loadingMode || currentUser?.role !== "admin";
+    const canControlServo =
+        loadingMode && currentUser?.role === "admin";
 
-    $("applyAngle").disabled =
-        !loadingMode || currentUser?.role !== "admin";
+    $("servoRange").disabled = !canControlServo;
+
+    $("applyAngle").disabled = !canControlServo;
 
     $("controlNote").textContent = loadingMode
         ? "Automatic levelling is paused. Admin can adjust the servo."
-        : "Automatic levelling is active, subject to your hardware firmware.";
+        : "Automatic levelling is active, subject to your ESP32 firmware.";
 
     const loadEnabled = t.load_enabled === true;
 
-    $("loadStatus").textContent = loadEnabled ? "ON" : "OFF";
+    $("loadStatus").textContent =
+        loadEnabled ? "ON" : "OFF";
 
-    $("loadTitle").textContent = loadEnabled
-        ? "Loading system is ON"
-        : "Loading system is OFF";
+    $("loadTitle").textContent =
+        loadEnabled
+            ? "Loading system is ON"
+            : "Loading system is OFF";
 
-    $("loadDescription").textContent = loadEnabled
-        ? "The device reports that the loading system is enabled."
-        : "The device reports that the loading system is disabled.";
+    $("loadDescription").textContent =
+        loadEnabled
+            ? "The device reports that loading is enabled."
+            : "The device reports that loading is disabled.";
 
-    $("loadIndicator").classList.toggle("active", loadEnabled);
+    $("loadIndicator").classList.toggle(
+        "active",
+        loadEnabled
+    );
 
     setSignal(Number(t.impact_g || 0));
 
@@ -505,18 +751,21 @@ function updateTelemetry(t) {
 
     lastImpact = impact;
 
-    $("lastUpdated").textContent =
-        new Date(t.timestamp).toLocaleTimeString([], {
+    const timestamp = Date.parse(t.timestamp);
+
+    $("lastUpdated").textContent = Number.isFinite(timestamp)
+        ? new Date(timestamp).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit"
-        });
+        })
+        : "—";
 }
 
 
-// =============================================
-// STATUS POLLING
-// =============================================
+// =====================================================
+// TELEMETRY POLLING
+// =====================================================
 
 async function poll() {
     if (pollInFlight || !currentUser) {
@@ -528,15 +777,15 @@ async function poll() {
     try {
         const data = await apiRequest("/api/status");
 
-        const t = data.telemetry;
+        const telemetry = data.telemetry;
 
         const online =
             data.device_online === true &&
-            Boolean(t && t.timestamp);
+            Boolean(telemetry && telemetry.timestamp);
 
         setConnection(online);
 
-        if (!t || !t.timestamp) {
+        if (!telemetry || !telemetry.timestamp) {
             $("balanceBanner").classList.add("waiting");
 
             $("balanceTitle").textContent =
@@ -548,26 +797,31 @@ async function poll() {
             return;
         }
 
-        const key = JSON.stringify(t);
+        const key = JSON.stringify(telemetry);
 
         if (key !== lastTelemetryKey) {
-            updateTelemetry(t);
+            updateTelemetry(telemetry);
+
             lastTelemetryKey = key;
         }
 
     } catch (error) {
-        console.error("Polling failed:", error.message);
+        console.error(
+            "Telemetry polling failed:",
+            error.message
+        );
 
         setConnection(false);
+
     } finally {
         pollInFlight = false;
     }
 }
 
 
-// =============================================
-// ADMIN-ONLY SERVO AND MODE COMMANDS
-// =============================================
+// =====================================================
+// ADMIN-ONLY LEVELLING MODE
+// =====================================================
 
 $("modeSwitch").addEventListener("change", async (event) => {
     if (currentUser?.role !== "admin") {
@@ -597,8 +851,10 @@ $("modeSwitch").addEventListener("change", async (event) => {
         });
 
         addLog(
-            enabled ? "Manual mode requested" : "Automatic mode requested",
-            "The command has been queued for the ESP32.",
+            enabled
+                ? "Manual mode requested"
+                : "Automatic mode requested",
+            "The command was queued for the ESP32.",
             "normal",
             false
         );
@@ -622,9 +878,15 @@ $("modeSwitch").addEventListener("change", async (event) => {
     }
 });
 
+
+// =====================================================
+// ADMIN-ONLY SERVO CONTROL
+// =====================================================
+
 $("servoRange").addEventListener("input", (event) => {
     $("rangeValue").textContent = event.target.value;
 });
+
 
 $("applyAngle").addEventListener("click", async () => {
     if (currentUser?.role !== "admin") {
@@ -640,6 +902,7 @@ $("applyAngle").addEventListener("click", async () => {
     const angle = Number($("servoRange").value);
 
     $("applyAngle").disabled = true;
+
     $("applyAngle").textContent = "Sending...";
 
     try {
@@ -649,7 +912,14 @@ $("applyAngle").addEventListener("click", async () => {
 
         addLog(
             "Servo command queued",
-            `Requested servo angle: ${angle}°.`
+            `Requested servo angle: ${angle}°.`,
+            "normal",
+            false
+        );
+
+        showToast(
+            "Servo command queued",
+            "Waiting for the ESP32 to process the command."
         );
 
     } catch (error) {
@@ -661,16 +931,21 @@ $("applyAngle").addEventListener("click", async () => {
 
     } finally {
         $("applyAngle").textContent = "Apply servo angle";
+
         $("applyAngle").disabled =
-            $("modeSwitch").checked === false;
+            !(
+                $("modeSwitch").checked &&
+                currentUser?.role === "admin"
+            );
+
         servoRequestInFlight = false;
     }
 });
 
 
-// =============================================
+// =====================================================
 // LOADING SYSTEM ON/OFF
-// =============================================
+// =====================================================
 
 async function setLoadSystem(enabled) {
     if (!currentUser || loadRequestInFlight) {
@@ -680,22 +955,26 @@ async function setLoadSystem(enabled) {
     loadRequestInFlight = true;
 
     $("loadOnButton").disabled = true;
+
     $("loadOffButton").disabled = true;
 
     $("loadNote").textContent =
-        "Sending command to the server...";
+        "Sending the command to the server...";
 
     try {
-        const result = await postJson("/api/commands/load", {
-            enabled
-        });
+        const result = await postJson(
+            "/api/commands/load",
+            { enabled }
+        );
 
         $("loadNote").textContent = result.queued
-            ? "Command queued. Waiting for the ESP32 to report the updated state."
+            ? "Command queued. Waiting for the ESP32 to report its state."
             : "Command sent.";
 
         addLog(
-            enabled ? "Loading system ON requested" : "Loading system OFF requested",
+            enabled
+                ? "Loading system ON requested"
+                : "Loading system OFF requested",
             "Waiting for the ESP32 to process the command.",
             "normal",
             false
@@ -703,7 +982,7 @@ async function setLoadSystem(enabled) {
 
         showToast(
             "Command queued",
-            "The displayed device state will update when new telemetry arrives."
+            "The displayed state will update when new device telemetry arrives."
         );
 
     } catch (error) {
@@ -717,24 +996,27 @@ async function setLoadSystem(enabled) {
 
     } finally {
         $("loadOnButton").disabled = false;
+
         $("loadOffButton").disabled = false;
 
         loadRequestInFlight = false;
     }
 }
 
+
 $("loadOnButton").addEventListener("click", () => {
     setLoadSystem(true);
 });
+
 
 $("loadOffButton").addEventListener("click", () => {
     setLoadSystem(false);
 });
 
 
-// =============================================
+// =====================================================
 // START APPLICATION
-// =============================================
+// =====================================================
 
 renderLog();
 
